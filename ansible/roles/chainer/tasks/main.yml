@@ -5,3 +5,114 @@
     password: "{{ ubuntu_password|password_hash('sha512') }}"
     groups: sudo
     append: yes
+
+- name: Setup bashrc
+  template:
+    src: home/ubuntu/dot_bashrc
+    dest: /home/ubuntu/.bashrc
+    owner: ubuntu
+    group: ubuntu
+
+- name: Setup profile
+  template:
+    src: home/ubuntu/dot_profile
+    dest: /home/ubuntu/.profile
+    owner: ubuntu
+    group: ubuntu
+
+- name: Install essential packages
+  become: true
+  apt: name={{ item }} update_cache=yes cache_valid_time=3600
+  with_items:
+    - git
+    - make
+    - build-essential
+    - libssl-dev
+    - zlib1g-dev
+    - libbz2-dev
+    - libreadline-dev
+    - libsqlite3-dev
+    - libncurses5-dev
+    - python-dev
+    - wget
+    - curl
+    - emacs
+    - vim
+    - cifs-utils
+
+# CUDA --------------------------------------------------------
+- name: Check CUDA
+  shell: which nvcc
+  register: cuda_installed
+  ignore_errors: True
+
+- name: Download CUDA
+  become: true
+  shell: |
+    mkdir -p /tmp/cuda && \
+    cd /tmp/cuda && \
+    wget -O cuda.deb {{ cuda_url }} && \
+    dpkg -i cuda.deb
+  when: cuda_installed|failed
+  args:
+    creates: /tmp/cuda/cuda.deb
+
+- name: Install CUDA
+  become: true
+  apt: name=cuda update_cache=yes
+  when: cuda_installed|failed
+
+# Python ---------------------------------------------------
+- name: Install pyenv
+  become_user: ubuntu
+  git:
+    repo: https://github.com/pyenv/pyenv.git
+    dest: /home/ubuntu/.pyenv
+    update: no
+
+- name: Install Python in pyenv
+  become_user: ubuntu
+  shell: |
+    bash -lc "pyenv install -s {{ python_version }}"
+    bash -lc "pyenv rehash"
+    bash -lc "pyenv global {{ python_version }}"
+  environment:
+    PATH: /home/ubuntu/.pyenv/bin:{{ ansible_env.PATH }}
+  args:
+    creates: /home/ubuntu/.pyenv/shims/python
+
+- name: Switch to pyenv python
+  set_fact:
+    ansible_python_interpreter: "/home/ubuntu/.pyenv/shims/python"
+
+- name: Install Chainer
+  become_user: ubuntu
+  pip:
+    name: chainer
+    version: "{{ chainer_version }}"
+
+- name: Install OpenCV
+  become_user: ubuntu
+  pip:
+    name: opencv-python
+
+- name: Install cudnnenv
+  become_user: ubuntu
+  pip:
+    name: cudnnenv
+
+- name: Install cuDNN
+  become_user: ubuntu
+  shell: |
+    bash -lc "cudnnenv install {{ cudnn_version }}"
+    bash -lc "cudnnenv activate {{ cudnn_version }}"
+  args:
+    creates: "/home/ubuntu/.cudnn/versions/{{ cudnn_version }}/cuda"
+
+- name: Install cupy
+  become_user: ubuntu
+  pip:
+    name: cupy
+  environment:
+    LDFLAGS: -L/home/ubuntu/.cudnn/active/cuda/lib64
+    CFLAGS: -I/home/ubuntu/.cudnn/active/cuda/include
