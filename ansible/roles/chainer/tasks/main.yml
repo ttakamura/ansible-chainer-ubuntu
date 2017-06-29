@@ -1,0 +1,7 @@
+---
+- name: Create ubuntu user
+  user:
+    name: ubuntu
+    password: "{{ ubuntu_password|password_hash('sha512') }}"
+    groups: sudo
+    append: yes

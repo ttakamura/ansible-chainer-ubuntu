@@ -1,0 +1,8 @@
+---
+- name: Install Chainer
+  hosts: chainer
+  become: yes
+  vars_files:
+    - group_vars/common.yml
+  roles:
+    - chainer
