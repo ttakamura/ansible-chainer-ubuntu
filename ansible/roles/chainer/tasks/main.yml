@@ -40,9 +40,23 @@
     - vim
     - cifs-utils
 
+- name: set timezone to Asia/Tokyo
+  timezone:
+    name: Asia/Tokyo
+
+# Mount file storage-------------------------------------------
+- name: Mount SMB storage
+  mount:
+    path: "/seminar"
+    src: "{{ smb_storage_src }}"
+    fstype: cifs
+    state: mounted
+    opts: "{{ smb_storage_opt }}"
+  when: not smb_storage_opt == false
+
 # CUDA --------------------------------------------------------
 - name: Check CUDA
-  shell: which nvcc
+  shell: ls /usr/local/cuda
   register: cuda_installed
   ignore_errors: True
 
